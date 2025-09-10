@@ -36,7 +36,7 @@ sudo iptables -F
 sudo iptables -t nat -A POSTROUTING -o wlp3s0 -j MASQUERADE
 sudo iptables -A FORWARD -i wlx00c0cab84be3 -o wlp3s0 -j ACCEPT
 sudo iptables -A FORWARD -i wlp3s0 -o wlx00c0cab84be3 -m state --state ESTABLISHED,RELATED -j ACCEPT
+sudo iptables -t nat -A PREROUTING -i wlx00c0cab84be3 -p tcp --dport 80 -j DNAT --to-destination 10.0.0.1:80
+sudo iptables -t nat -A PREROUTING -i wlx00c0cab84be3 -p tcp --dport 443 -j DNAT --to-destination 10.0.0.1:443 -j DNAT --to-destination 10.0.0.1:443
 
-echo "[*] Starting captive portal web server..."
-cd /home/rakasatryo/hostdirect/portal/captive-portal/public
-sudo python3 -m http.server 80
+echo "service started."
