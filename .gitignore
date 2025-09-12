@@ -1,5 +1,0 @@
-*.o
-*.d
-hostapd/hostapd
-hostapd/hostapd_cli
-
