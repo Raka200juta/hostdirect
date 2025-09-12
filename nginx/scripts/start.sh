@@ -4,7 +4,7 @@ GATEWAY="192.168.4.1"
 NETMASK="/24"
 DNSMASQ_CONF="/home/rakasatryo/hostdirect/nginx/configs/dnsmasq.conf"
 HOSTAPD_CONF="/home/rakasatryo/hostdirect/nginx/configs/hostapd.conf"
-NODE_APP="/home/agent6/autoredirect/captive/start-server.sh"
+NODE_APP="/home/rakasatryo/hostdirect/nginx/captive/start-server.sh"
 HOSTAPD_DIR="/home/agent6/autoredirect/hostapd"
 INTERNET_IFACE="eth0"  # Sesuaikan dengan interface internet Anda
 AUTH_PAGE="/auth.html"    # Halaman autentikasi Anda
@@ -340,18 +340,29 @@ server {
         detectportal.firefox.com
         neverssl.com;
     
-    # Apple iOS Captive Portal Detection - HARUS 200 (bukan 302)
+    # Apple iOS Captive Portal Detection - Force redirect to auth
     location = /hotspot-detect.html {
-        add_header Cache-Control no-cache;
+        add_header Cache-Control "no-store, no-cache, must-revalidate";
+        add_header Pragma no-cache;
         add_header Content-Type text/html;
-        return 200 "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>";
+        add_header X-Organization "Captive";
+        return 302 http://\$GATEWAY\$AUTH_PAGE;
     }
     
-    # Apple Success Page - HARUS 200 (bukan 302)
+    # Apple Success Page - Force redirect to auth
     location = /library/test/success.html {
-        add_header Cache-Control no-cache;
+        add_header Cache-Control "no-store, no-cache, must-revalidate";
+        add_header Pragma no-cache;
         add_header Content-Type text/html;
-        return 200 "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>";
+        add_header X-Organization "Captive";
+        return 302 http://\$GATEWAY\$AUTH_PAGE;
+    }
+    
+    # iOS specific captive detect paths
+    location ~ ^/success\.html$ {
+        add_header Cache-Control "no-store, no-cache, must-revalidate";
+        add_header Pragma no-cache;
+        return 302 http://\$GATEWAY\$AUTH_PAGE;
     }
     
     # Chrome Captive Portal Detection - HARUS 204 (bukan 302)
@@ -1076,10 +1087,10 @@ debug_network() {
     fi
     
     # Check if IP address is assigned
-    if ip addr show "$IFACE" | grep -q "10.235.100.1"; then
-        echo "    ✅ IP address 10.235.100.1 is assigned to $IFACE"
+    if ip addr show "$IFACE" | grep -q "$GATEWAY"; then
+        echo "    ✅ IP address $GATEWAY is assigned to $IFACE"
     else
-        echo "    ❌ IP address 10.235.100.1 is not assigned to $IFACE"
+        echo "    ❌ IP address $GATEWAY is not assigned to $IFACE"
     fi
     
     # Check if IP forwarding is enabled
@@ -1182,9 +1193,19 @@ else
     echo "[*] 🎯 hostapd directory: $HOSTAPD_DIR"
 fi
 echo "[*] 🌐 Setting up interface $IFACE with IP $GATEWAY..."
-# Stop services that might interfere
-systemctl stop NetworkManager wpa_supplicant || true
+# Configure NetworkManager to ignore our interface
 nmcli device set $IFACE managed no 2>/dev/null || true
+# Create NetworkManager config if it doesn't exist
+mkdir -p /etc/NetworkManager/conf.d/
+cat > /etc/NetworkManager/conf.d/100-unmanaged-wifi.conf <<EOF
+[keyfile]
+unmanaged-devices=interface-name:$IFACE
+EOF
+# Reload NetworkManager to apply changes
+systemctl reload NetworkManager || true
+
+# Stop wpa_supplicant on our interface only
+pkill -f "wpa_supplicant.*$IFACE" || true
 
 # Fast interface setup
 ip addr flush dev $IFACE
@@ -1196,12 +1217,66 @@ sleep 1 # Short wait for interface
 sleep 3
 # Debug configurations
 debug_hostapd
+
+# Check interface status and NetworkManager
+echo "[*] 🔍 Checking interface and NetworkManager status..."
+if nmcli device show $IFACE 2>/dev/null | grep -q "GENERAL.STATE.*unmanaged"; then
+    echo "    ✅ Interface $IFACE is unmanaged by NetworkManager"
+else
+    echo "    ⚠️ Interface $IFACE might still be managed by NetworkManager"
+    echo "    → Trying to set unmanaged again..."
+    nmcli device set $IFACE managed no 2>/dev/null || true
+fi
+
+# Verify interface state
+if ip link show $IFACE | grep -q "state UP"; then
+    echo "    ✅ Interface $IFACE is UP"
+else
+    echo "    → Bringing interface up..."
+    ip link set $IFACE up
+    sleep 2
+fi
+
 # Create device-specific files
 create_device_files
 # Create success page
 create_success_page
 # Check and create auth page if needed
 check_auth_page
+# Generate SSL certificate if not exists
+if [ ! -f "/etc/ssl/certs/captive.crt" ]; then
+    echo "[*] 🔒 Generating self-signed SSL certificate..."
+    # Create directory if not exists
+    sudo mkdir -p /etc/ssl/private
+    # Generate self-signed certificate
+    sudo openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+        -keyout /etc/ssl/private/captive.key \
+        -out /etc/ssl/certs/captive.crt \
+        -subj "/CN=Captive Portal/O=Local Network/C=US" \
+        -addext "subjectAltName=DNS:*.portal.local,DNS:portal.local,DNS:captive.apple.com"
+    # Set permissions
+    sudo chmod 644 /etc/ssl/certs/captive.crt
+    sudo chmod 640 /etc/ssl/private/captive.key
+    echo "[*] ✅ SSL certificate generated"
+fi
+
+# Generate SSL certificate if not exists
+if [ ! -f "/etc/ssl/certs/captive.crt" ]; then
+    echo "[*] 🔒 Generating self-signed SSL certificate..."
+    # Create directory if not exists
+    sudo mkdir -p /etc/ssl/private
+    # Generate self-signed certificate
+    sudo openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+        -keyout /etc/ssl/private/captive.key \
+        -out /etc/ssl/certs/captive.crt \
+        -subj "/CN=Captive Portal/O=Local Network/C=US" \
+        -addext "subjectAltName=DNS:*.portal.local,DNS:portal.local,DNS:captive.apple.com"
+    # Set permissions
+    sudo chmod 644 /etc/ssl/certs/captive.crt
+    sudo chmod 640 /etc/ssl/private/captive.key
+    echo "[*] ✅ SSL certificate generated"
+fi
+
 # Configure services
 configure_dnsmasq_universal
 configure_nginx_universal

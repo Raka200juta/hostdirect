@@ -1,1 +1,4 @@
 Instagram server listening on 0.0.0.0:3001
+GET /
+Headers: { host: 'localhost:3001', 'user-agent': 'curl/8.5.0', accept: '*/*' }
+Body: undefined
