@@ -1,4 +1,4 @@
-#!/bin/bash
+ #!/bin/bash
 
 echo "[*] Cleaning up old processes..."
 # Kill dnsmasq lama kalau ada
@@ -37,6 +37,10 @@ sudo iptables -t nat -A POSTROUTING -o wlp3s0 -j MASQUERADE
 sudo iptables -A FORWARD -i wlx00c0cab84be3 -o wlp3s0 -j ACCEPT
 sudo iptables -A FORWARD -i wlp3s0 -o wlx00c0cab84be3 -m state --state ESTABLISHED,RELATED -j ACCEPT
 sudo iptables -t nat -A PREROUTING -i wlx00c0cab84be3 -p tcp --dport 80 -j DNAT --to-destination 10.0.0.1:80
-sudo iptables -t nat -A PREROUTING -i wlx00c0cab84be3 -p tcp --dport 443 -j DNAT --to-destination 10.0.0.1:443 -j DNAT --to-destination 10.0.0.1:443
+sudo iptables -t nat -A PREROUTING -i wlx00c0cab84be3 -p tcp --dport 443 -j DNAT --to-destination 10.0.0.1:443
+
+# Force all DNS traffic to local dnsmasq (10.0.0.1)
+sudo iptables -t nat -A PREROUTING -i wlx00c0cab84be3 -p udp --dport 53 -j DNAT --to-destination 10.0.0.1:53
+sudo iptables -t nat -A PREROUTING -i wlx00c0cab84be3 -p tcp --dport 53 -j DNAT --to-destination 10.0.0.1:53
 
 echo "service started."
