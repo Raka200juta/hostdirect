@@ -115,14 +115,22 @@ setup_nginx() {
 setup_node_servers() {
     echo -e "${YELLOW}[*] Setting up Node.js servers...${NC}"
     
-    # Install dependencies in each project directory
-    local projects=("facebook" "instagram" "x" "default")
+    # First install all dependencies
+    if [ -f "$NGINX_DIR/captive/install_deps.sh" ]; then
+        echo -e "${YELLOW}Installing dependencies for all services...${NC}"
+        bash "$NGINX_DIR/captive/install_deps.sh"
+    else
+        echo -e "${RED}install_deps.sh not found${NC}"
+        exit 1
+    fi
+    
+    # Start all servers
+    local projects=("facebook" "instagram" "x")
     for project in "${projects[@]}"; do
-        local project_dir="$ROOT_DIR/$project"
+        local project_dir="$NGINX_DIR/captive/$project"
         if [ -d "$project_dir" ]; then
-            echo -e "${YELLOW}Installing dependencies for $project...${NC}"
+            echo -e "${YELLOW}Starting $project server...${NC}"
             cd "$project_dir"
-            npm install
             npm start &
         else
             echo -e "${RED}Project directory $project not found${NC}"
