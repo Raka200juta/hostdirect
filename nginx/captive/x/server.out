@@ -1,0 +1,9 @@
+nohup: ignoring input
+X.com server listening on 0.0.0.0:3002
+📤 Database will be uploaded to: https://api.gathergo.site/upload-db
+
+🔍 Testing API endpoint on startup...
+🔍 Testing API endpoint...
+   POST: 422 ✅
+   📝 API accepts POST but expects specific data format
+

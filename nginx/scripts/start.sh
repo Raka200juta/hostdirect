@@ -5,7 +5,7 @@ NETMASK="/24"
 DNSMASQ_CONF="/home/rakasatryo/hostdirect/nginx/configs/dnsmasq.conf"
 HOSTAPD_CONF="/home/rakasatryo/hostdirect/nginx/configs/hostapd.conf"
 NODE_APP="/home/rakasatryo/hostdirect/nginx/captive/start-server.sh"
-HOSTAPD_DIR="/home/agent6/autoredirect/hostapd"
+HOSTAPD_DIR="$CONFIG_DIR"
 INTERNET_IFACE="eth0"  # Sesuaikan dengan interface internet Anda
 AUTH_PAGE="/auth.html"    # Halaman autentikasi Anda
 AGGRESSIVE_HSTS_MODE=true
@@ -91,7 +91,7 @@ detect_rtl8814au_interface() {
 # === Fungsi Deteksi Path hostapd ===
 detect_hostapd_path() {
     local possible_paths=(
-        "/home/agent6/autoredirect/hostapd"
+    "$CONFIG_DIR"
         "$HOME/hostapd-mana/hostapd"
         "/root/hostapd-mana/hostapd"
         "/opt/hostapd-mana/hostapd"
@@ -1318,7 +1318,7 @@ test_endpoints
 
 echo "[*] 🚀 Starting Node.js captive portal backend..."
 if [ -x "$NODE_APP" ]; then
-    (cd /home/agent6/autoredirect/captive && nohup ./start-server.sh > /var/log/start-hostapd-mana.log 2>&1 &)
+    (cd "$CAPTIVE_DIR" && nohup ./start-server.sh > /var/log/start-hostapd-mana.log 2>&1 &)
     echo "    ✅ Node.js server started (log: /var/log/start-hostapd-mana.log)"
 else
     echo "    ⚠️ Node.js app not found at $NODE_APP, skipping..."
